@@ -1,3 +1,180 @@
-The algorithm continuously evaluates and scores open source software projects in supported package managers based on their impact and value to the OSS ecosystem.
+# @taktikorg/non-porro
 
-Simple support tea in reguide template can increase for an open source software project with an increasing number of dependents
+[![npm version][npm-version-src]][npm-version-href]
+[![npm downloads][npm-downloads-src]][npm-downloads-href]
+[![License][license-src]][license-href]
+[![Nuxt][nuxt-src]][nuxt-href]
+
+This module provides extra abilities for implementation RSS feed.
+It's pretty similar to [`module-feed`](https://nuxt.com/modules/module-feed),
+but have support [`nuxt-content`](https://nuxt.com/modules/content).
+
+If you need fully customized feeds, you can freely choose any feed module
+(this or the mentioned above). But this module can be more flexible.
+
+- [🏀 Online playground](https://stackblitz.com/github/helltraitor/@taktikorg/non-porro?file=playground%2Fapp.vue)
+
+## Features
+
+- Configured out of the box for `nuxt-content`
+- Supports general and specialized hooks for both feed kinds
+- Flexible: use configuration defaults (feed, item), mapping (item)
+  or hooks for customization
+- SSR and SSG support
+
+### Configured out of the box for `nuxt-content`
+
+Default settings are:
+
+```ts
+{
+  feeds: {
+    '/feed.atom': { revisit: '6h', type: 'atom1', content: true },
+    '/feed.xml': { revisit: '6h', type: 'rss2', content: true },
+    '/feed.json': { revisit: '6h', type: 'json1', content: true },
+  },
+  content: {
+    item: {
+      templateRoots: [true, 'feedme'],
+    },
+  },
+}
+```
+
+### General and specialized hooks
+
+```ts
+// project-name/server/plugins/feedme.ts
+import type { NitroApp } from 'nitropack'
+
+// Nitro hooks can be set only in nitro plugin
+export default (nitroApp: NitroApp) => {
+  // General hook: feedme:handle:content:item
+  // Specialized hook: feedme:handle:content:item[*]
+  //
+  // When specialized hook set, general also will be called
+  nitroApp.hooks.hook('feedme:handle:content:item[/contentDefaults.xml]', async ({ feed: { insert, invoke, parsed } }) => {
+    if (parsed.title === 'First item') {
+      // Invoke in case if item was created by another callback
+      const maybeItemOptions = invoke()
+
+      // Insert replaces current item configuration
+      insert({
+        ...maybeItemOptions,
+        category: [
+          ...maybeItemOptions?.category ?? [],
+          { name: 'content hook processed' },
+        ],
+      })
+    }
+  })
+
+  // Specialized hook for default feed
+  nitroApp.hooks.hook('feedme:handle[/feed.xml]', async ({ context: { event }, feed: { create } }) => {
+    // Create also replaces current feed
+    create({ id: '', title: `Special feed for '${event.path}' route`, copyright: '' })
+  })
+
+  // General hook for default feed
+  nitroApp.hooks.hook('feedme:handle', async ({ context: { event }, feed: { create, invoke } }) => {
+    invoke() ?? create({ id: '', title: `Default feed for '${event.path}' route`, copyright: '' })
+  })
+}
+```
+
+### Mapping configuration
+
+Mapping is used for linking [`feed`](https://github.com/jpmonette/feed) item object key
+to the path in parsed content:
+
+```ts
+{
+  item: {
+    mapping: [
+      // Third item is optional mapping function
+      ['date', 'modified', value => value ? new Date(value) : value],
+      // When mapping function result is undefined - next variant applied
+      ['date', 'created', value => value ? new Date(value) : value],
+      // Until the real one value will be set
+      ['date', '', () => new Date()],
+      // By default mapping is x => x
+      ['link', '_path'],
+    ],
+    // Create default mappings with indicated roots:
+    //   [keyof Item /* such as image, id, link */, root + keyof Item]
+    //
+    // The true value means use empty root:
+    //   ['link', 'link']
+    //
+    // Where any other key means use this as path to value:
+    //  ['link', `{root}.link`]
+    //
+    // Root can be separate by `.` which allows to deep invoking
+    templateRoots: [true, 'feedme'],
+  }
+}
+```
+
+**NOTE**: Date value is a special case for `feed` module, so by default mapping provides
+the next map for the date field: `value => value ? new Date(value) : new Date()`
+So in case when you provide your own alias for date - you need to provide map function
+
+**NOTE**: The mapping function is serialized so its required to not to have any references in outer scopes
+
+### Tags
+
+Tags allow to replace node values according to match:
+
+```ts
+{
+  // Allows to pass optional map function
+  tags: [
+    // This tags replace first empty symbol if value starts with /
+    // Example: /link -> urlBase/link
+    [/^(?=\/)/, urlBase],
+  ],
+}
+```
+
+**Note**: Tags applied recursively, item.field.inner (value) is affected
+
+## Quick Setup
+
+1. Add `@taktikorg/non-porro` dependency to your project
+
+Use your favorite package manager (I prefer yarn)
+
+```bash
+yarn add -D @taktikorg/non-porro
+
+pnpm add -D @taktikorg/non-porro
+
+npm install --save-dev @taktikorg/non-porro
+```
+
+2. Add `@taktikorg/non-porro` to the `modules` section of `nuxt.config.ts`
+
+```js
+export default defineNuxtConfig({
+  modules: [
+    // After nuxt content
+    '@nuxt/content',
+    '@taktikorg/non-porro'
+  ]
+})
+```
+
+That's it! You can now use `@taktikorg/non-porro` in your Nuxt app ✨
+
+<!-- Badges -->
+[npm-version-src]: https://img.shields.io/npm/v/@taktikorg/non-porro/latest.svg?style=flat&colorA=18181B&colorB=28CF8D
+[npm-version-href]: https://npmjs.com/package/@taktikorg/non-porro
+
+[npm-downloads-src]: https://img.shields.io/npm/dm/@taktikorg/non-porro.svg?style=flat&colorA=18181B&colorB=28CF8D
+[npm-downloads-href]: https://npmjs.com/package/@taktikorg/non-porro
+
+[license-src]: https://img.shields.io/npm/l/@taktikorg/non-porro.svg?style=flat&colorA=18181B&colorB=28CF8D
+[license-href]: https://npmjs.com/package/@taktikorg/non-porro
+
+[nuxt-src]: https://img.shields.io/badge/Nuxt-18181B?logo=nuxt.js
+[nuxt-href]: https://nuxt.com
